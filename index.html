@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bitcoin Rolling Loan Simulator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+      color: #222;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input {
+      padding: 4px;
+      margin-top: 4px;
+      width: 120px;
+    }
+    button {
+      margin-top: 12px;
+      padding: 6px 14px;
+      background: #ff9900;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #cc7a00;
+    }
+    table {
+      border-collapse: collapse;
+      margin-top: 20px;
+      width: 100%;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: right;
+    }
+    th {
+      background: #eee;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h2>Bitcoin Rolling Loan Simulator</h2>
+
+  <div id="form">
+    <label>Collateral (BTC):
+      <input type="number" id="collateral" value="1" min="0" step="0.01">
+    </label>
+
+    <label>Annual Draw (USD):
+      <input type="number" id="draw" value="12000" min="0">
+    </label>
+
+    <label>Interest Rate (% APR):
+      <input type="number" id="rate" value="12.5" min="0" step="0.1">
+    </label>
+
+    <label>Starting CAGR (%):
+      <input type="number" id="cagr" value="35" min="0" step="0.1">
+    </label>
+
+    <label>CAGR Reduction per Year (%):
+      <input type="number" id="decay" value="5" min="0" step="0.1">
+    </label>
+
+    <label>Simulation Years:
+      <input type="number" id="years" value="10" min="1">
+    </label>
+
+    <button id="run">Simulate</button>
+  </div>
+
+  <div id="priceDiv"></div>
+  <div id="tableDiv"></div>
+
+  <script>
+    async function getBTCPrice() {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+        const data = await res.json();
+        return data.bitcoin.usd;
+      } catch (e) {
+        alert('Price fetch failed, defaulting to 120,000');
+        return 120000;
+      }
+    }
+
+    function fmt(n) {
+      return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    document.getElementById('run').addEventListener('click', async () => {
+      const collateralBTC = parseFloat(document.getElementById('collateral').value);
+      const draw = parseFloat(document.getElementById('draw').value);
+      const rate = parseFloat(document.getElementById('rate').value) / 100;
+      const startCagr = parseFloat(document.getElementById('cagr').value) / 100;
+      const decay = parseFloat(document.getElementById('decay').value) / 100;
+      const years = parseInt(document.getElementById('years').value, 10);
+
+      const startPrice = await getBTCPrice();
+      document.getElementById('priceDiv').innerHTML = `<p><strong>Current BTC Price:</strong> $${fmt(startPrice)}</p>`;
+
+      let btcPrice = startPrice;
+      let loan = 0;
+      let cagr = startCagr;
+      let rows = '';
+
+      for (let y = 1; y <= years; y++) {
+        const collateralValue = btcPrice * collateralBTC;
+        loan += draw; // add annual draw
+        const interest = loan * rate; // interest on current balance
+        loan += interest; // capitalise interest
+        const ltv = loan / collateralValue;
+
+        rows += `<tr><td>${y}</td><td>$${fmt(btcPrice)}</td><td>$${fmt(collateralValue)}</td><td>$${fmt(loan)}</td><td>$${fmt(interest)}</td><td>${(ltv * 100).toFixed(2)}%</td></tr>`;
+
+        // grow BTC price for next year and decay CAGR
+        btcPrice *= (1 + cagr);
+        cagr *= (1 - decay);
+      }
+
+      document.getElementById('tableDiv').innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Year</th><th>BTC Price</th><th>Collateral Value</th><th>Loan Balance End</th><th>Interest Added</th><th>LTV</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    });
+  </script>
+</body>
+</html>
