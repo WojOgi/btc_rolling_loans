@@ -148,34 +148,31 @@
         const labels = [];
         const collateralArr = [];
         const ltvArr = [];
+        const loanArr = [];
 
         for (let y = 1; y <= years; y++) {
           const collateralValue = btcPrice * collateralBTC;
           let draw = 0;
+          let interest = 0;
           if (y > delay) {
             const yearsSinceFirst = y - delay - 1;
             draw = initialDraw * Math.pow(1 + drawInc, yearsSinceFirst);
             loan += draw;
-            const interest = loan * rate;
+            interest = loan * rate;
             loan += interest;
-            rows += `<tr><td>${y}</td><td>$${fmt(btcPrice)}</td><td>$${fmt(
-              collateralValue
-            )}</td><td>$${fmt(draw)}</td><td>$${fmt(loan)}</td><td>$${fmt(
-              interest
-            )}</td><td>${fmt((loan / collateralValue) * 100)}%</td></tr>`;
-          } else {
-            // pre-draw years
-            rows += `<tr><td>${y}</td><td>$${fmt(btcPrice)}</td><td>$${fmt(
-              collateralValue
-            )}</td><td>$0.00</td><td>$${fmt(loan)}</td><td>$0.00</td><td>${fmt(
-              (loan / collateralValue) * 100
-            )}%</td></tr>`;
           }
+
+          rows += `<tr><td>${y}</td><td>$${fmt(btcPrice)}</td><td>$${fmt(
+            collateralValue
+          )}</td><td>$${fmt(draw)}</td><td>$${fmt(loan)}</td><td>$${fmt(
+            interest
+          )}</td><td>${fmt((loan / collateralValue) * 100)}%</td></tr>`;
+
           labels.push(`Year ${y}`);
           collateralArr.push(collateralValue);
+          loanArr.push(loan);
           ltvArr.push((loan / collateralValue) * 100);
 
-          // grow BTC price and decay CAGR for next year
           btcPrice *= 1 + cagr;
           cagr *= 1 - decay;
         }
@@ -199,6 +196,14 @@
                 fill: false,
               },
               {
+                label: "Loan Balance (USD)",
+                data: loanArr,
+                yAxisID: "y1",
+                borderWidth: 2,
+                fill: false,
+                borderDash: [5, 5],
+              },
+              {
                 label: "LTV (%)",
                 data: ltvArr,
                 yAxisID: "y2",
@@ -213,7 +218,7 @@
               y1: {
                 type: "linear",
                 position: "left",
-                title: { display: true, text: "Collateral (USD)" },
+                title: { display: true, text: "USD Values" },
               },
               y2: {
                 type: "linear",
